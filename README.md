@@ -77,7 +77,7 @@ A powerful **MERN stack** web application integrated with **AI-based face recogn
 ---
 
 ## 🗂 Project Structure
-
+```
 ### Frontend (React)
 
 client/
@@ -100,7 +100,7 @@ server/
 └── server.js # Entry point
 
 
----
+```
 
 ## 📸 Screenshots
 
