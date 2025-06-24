@@ -57,7 +57,7 @@ export const usersAPI = {
 
 // Subjects API
 export const subjectsAPI = {
-  getSubjects: (params) => api.get('/subjects', { params }),
+  getSubjects: (params) => api.get('/subjects/', { params }),
   getMySubjects: () => api.get('/subjects/my-subjects'),
   createSubject: (data) => api.post('/subjects', data),
   updateSubject: (subjectId, data) => api.put(`/subjects/${subjectId}`, data),
@@ -68,7 +68,7 @@ export const subjectsAPI = {
 export const timetableAPI = {
   getTimetable: (params) => api.get('/timetable', { params }),
   getMySchedule: () => api.get('/timetable/my-schedule'),
-  createEntry: (data) => api.post('/timetable', data),
+  createEntry: (data) => api.post('/timetable/', data),
   updateEntry: (entryId, data) => api.put(`/timetable/${entryId}`, data),
   deleteEntry: (entryId) => api.delete(`/timetable/${entryId}`),
 };
@@ -82,5 +82,11 @@ export const attendanceAPI = {
   getAttendanceReport: (params) => api.get('/attendance/report', { params }),
   getSessions: (params) => api.get('/attendance/sessions', { params }),
 };
+
+// foldar banao naam se automatic, folder ke andar wohi fucking naam se save honi chaiye
+
+//recognition 
+
+//mongodb save(upload) 
 
 export default api;

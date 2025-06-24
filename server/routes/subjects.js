@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import Subject from '../models/Subject.js';
 import User from '../models/User.js';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
+import Timetable from '../models/Timetable.js';
 
 const router = express.Router();
 
@@ -10,7 +11,10 @@ const router = express.Router();
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const { department, semester, facultyId } = req.query;
+    console.log('Get subjects query:', department, semester, facultyId);
+    console.log('authentication:', authenticateToken);
     
+
     const filter = { isActive: true };
     if (department) filter.department = department;
     if (semester) filter.semester = semester;
@@ -30,12 +34,13 @@ router.get('/', authenticateToken, async (req, res) => {
 // Get subjects assigned to faculty
 router.get('/my-subjects', authenticateToken, requireRole(['faculty']), async (req, res) => {
   try {
-    const facultyId = req.user.userId;
+    const faculty = req.user.userId;
 
-    const subjects = await Subject.find({ 
-      facultyId, 
+    const subjects = await Timetable.find({ 
+      faculty, 
       isActive: true 
     }).sort({ name: 1 });
+    console.log('subjects:', subjects);
 
     res.json({ subjects });
   } catch (error) {

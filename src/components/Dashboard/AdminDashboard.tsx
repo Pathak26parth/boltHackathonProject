@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Users, BookOpen, Calendar, Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-//@ts-ignore
 import { subjectsAPI, timetableAPI, usersAPI } from '../../services/api';
 import { Subject, Timetable, User } from '../../types';
 
@@ -27,14 +26,15 @@ export const AdminDashboard: React.FC = () => {
   });
 
   const [newTimetableEntry, setNewTimetableEntry] = useState({
-    day: '',
-    time: '',
-    subject: '',
-    faculty: '',
-    division: '',
-    room: '',
-    department: '',
-    semester: 1
+   day: "Wednesday",
+  time: "11:00",
+  subjectId: "6853f6461a9a25e115520a11",
+  faculty: "6852e9eeaf0b9e67a6fbfc37",
+  division: "B",
+  room: "Lab-1",
+  department: "CSE",
+    semester: 1,
+    duration: 60
   });
 
   useEffect(() => {
@@ -99,7 +99,6 @@ export const AdminDashboard: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      await subjectsAPI.createSubject(newSubject);
       setNewSubject({ 
         name: '', 
         code: '', 
@@ -109,6 +108,7 @@ export const AdminDashboard: React.FC = () => {
         facultyId: '', 
         description: '' 
       });
+      await subjectsAPI.createSubject(newSubject);
       setShowAddSubject(false);
       fetchSubjects();
     } catch (error) {
@@ -119,21 +119,50 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleAddTimetableEntry = async (e: React.FormEvent) => {
+  // const handleAddTimetableEntry = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   try {
+  //     setLoading(true);
+  //     setNewTimetableEntry({ 
+  //       day: '', 
+  //       time: '', 
+  //       subjectName: '', 
+  //       faculty: '', 
+  //       division: '', 
+  //       room: '', 
+  //       department: '', 
+  //       semester: 1 ,
+  //       duration: 60 
+  //     });
+  //     await timetableAPI.createEntry(newTimetableEntry);
+  //     setShowAddTimetable(false);
+  //     fetchTimetable();
+  //   } catch (error) {
+  //     console.error('Error creating timetable entry:', error);
+  //     alert('Error creating timetable entry. Please check for conflicts.');
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+const handleAddTimetableEntry = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
-      await timetableAPI.createEntry(newTimetableEntry);
       setNewTimetableEntry({ 
-        day: '', 
-        time: '', 
-        subject: '', 
-        faculty: '', 
-        division: '', 
-        room: '', 
-        department: '', 
-        semester: 1 
+        
+  day: "Wednesday",
+  time: "14:00",
+  subjectId: "6853f6461a9a25e115520a11",
+  faculty: "6852e9eeaf0b9e67a6fbfc37",
+  division: "k",
+  room: "Lab-1",
+  department: "ME",
+  semester: 6,
+  duration: 60
+
       });
+      await timetableAPI.createEntry(newTimetableEntry);
       setShowAddTimetable(false);
       fetchTimetable();
     } catch (error) {
@@ -265,8 +294,8 @@ export const AdminDashboard: React.FC = () => {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
                       <select
-                        value={newTimetableEntry.subject}
-                        onChange={(e) => setNewTimetableEntry({...newTimetableEntry, subject: e.target.value})}
+                        value={newTimetableEntry.subjectId}
+                        onChange={(e) => setNewTimetableEntry({...newTimetableEntry, subjectId: e.target.value})}
                         required
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
@@ -632,6 +661,9 @@ export const AdminDashboard: React.FC = () => {
               </div>
             </div>
           )}
+          <form onSubmit={handleAddTimetableEntry}>
+            <input type="submit" />
+          </form>
         </div>
       </div>
     </div>

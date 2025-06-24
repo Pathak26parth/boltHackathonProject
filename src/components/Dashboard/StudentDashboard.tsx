@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, TrendingUp, Calendar, Award, BarChart3 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-// @ts-ignore
 import { attendanceAPI } from '../../services/api';
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, Pie } from 'recharts';
 

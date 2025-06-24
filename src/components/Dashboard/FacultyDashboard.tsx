@@ -3,9 +3,12 @@ import { BookOpen, Camera, FileText, Calendar, Users, Play, Download, StopCircle
 import { useAuth } from '../../context/AuthContext';
 import { subjectsAPI, attendanceAPI, usersAPI } from '../../services/api';
 import { Subject, User } from '../../types';
+import AttendanceModal from '../components/AttendanceModal';
+
 
 interface AttendanceSession {
   sessionId: string;
+  id: string;
   subject: string;
   subjectName: string;
   division: string;
@@ -14,6 +17,13 @@ interface AttendanceSession {
   status: string;
   startTime: string;
 }
+
+interface DetectedStudent {
+  enrollmentNumber: string;
+  name: string;
+  confidence?: number;
+}
+
 
 export const FacultyDashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -24,8 +34,10 @@ export const FacultyDashboard: React.FC = () => {
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [currentSession, setCurrentSession] = useState<AttendanceSession | null>(null);
   const [loading, setLoading] = useState(false);
-  const [detectedStudents, setDetectedStudents] = useState(0);
+const [detectedStudents, setDetectedStudents] = useState<DetectedStudent[]>([]);
   const [recognizedStudents, setRecognizedStudents] = useState(0);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+
 
   useEffect(() => {
     if (activeTab === 'subjects') {
@@ -39,7 +51,9 @@ export const FacultyDashboard: React.FC = () => {
     try {
       setLoading(true);
       const response = await subjectsAPI.getMySubjects();
+      console.log('Assigned Subjects:', response);
       setAssignedSubjects(response.data.subjects);
+      console.log('Assigned Subjects Data: hameha', response.data);
     } catch (error) {
       console.error('Error fetching assigned subjects:', error);
     } finally {
@@ -56,28 +70,37 @@ export const FacultyDashboard: React.FC = () => {
     }
   };
 
-  const handleStartAttendance = async (subjectId: string) => {
+  const handleStartAttendance = async (subjectId : string) => {
     const subject = assignedSubjects.find(s => s.id === subjectId);
-    if (!subject) return;
-
+if (!subject) {
+    console.error('Subject not found');
+    
+  }
     try {
       setLoading(true);
+      console.log('yehi hai subject id :', subject?.subjectId);
       
       // For demo purposes, we'll use default values
       const sessionData = {
-        subjectId,
-        division: 'A', // You might want to make this selectable
+        subjectId: subject?.subjectId,
+        division:subject.division, // You might want to make this selectable
         department: subject.department,
         semester: subject.semester
       };
+      console.log('Session Data:', sessionData);
 
       const response = await attendanceAPI.startSession(sessionData);
+      console.log('Full response:', response);
+
       setCurrentSession(response.data.session);
-      setSelectedSubject(subjectId);
+      setSelectedSubject(subject.id);
       setIsAttendanceMode(true);
+      setShowAttendanceModal(true);
+
+
       
       // Fetch students for this session
-      await fetchStudents(subject.department, 'A', subject.semester);
+      await fetchStudents(subject?.department, subject.division, subject.semester);
       
       // Simulate AI detection progress
       simulateAIDetection();
@@ -90,23 +113,70 @@ export const FacultyDashboard: React.FC = () => {
   };
 
   const handleStopAttendance = async () => {
-    if (!currentSession) return;
+  if (!currentSession) return;
 
-    try {
-      setLoading(true);
-      await attendanceAPI.endSession(currentSession.sessionId);
-      setIsAttendanceMode(false);
-      setCurrentSession(null);
-      setSelectedSubject('');
-      setDetectedStudents(0);
-      setRecognizedStudents(0);
-    } catch (error) {
-      console.error('Error ending attendance session:', error);
-      alert('Error ending attendance session. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    setLoading(true);
+
+    const presentEnrollmentNumbers = detectedStudents.map(s => s.enrollmentNumber);
+
+const presentStudents = detectedStudents.map(student => ({
+  studentName: student.name,
+  enrollmentNumber: student.enrollmentNumber,
+  subject: currentSession.subject,        // from session
+  subjectName: currentSession.subjectName,
+  faculty: user.id,                       // from auth context
+  facultyName: user.username,
+  date: new Date(),
+  status: 'present',
+  division: currentSession.division,
+  department: currentSession.department,
+  semester: currentSession.semester,
+  sessionId: currentSession.sessionId,
+  detectionConfidence: student.confidence || 0,
+}));
+
+const absentStudents = students
+  .filter(student => !presentEnrollmentNumbers.includes(student.enrollmentNumber))
+  .map(student => ({
+    studentName: student.name,
+    enrollmentNumber: student.enrollmentNumber,
+    subject: currentSession.subject,
+    subjectName: currentSession.subjectName,
+    faculty: user.id,
+    facultyName: user.username,
+    date: new Date(),
+    status: 'absent',
+    division: currentSession.division,
+    department: currentSession.department,
+    semester: currentSession.semester,
+    sessionId: currentSession.sessionId,
+    detectionConfidence: 0,
+  }));
+
+const attendanceData = [...presentStudents, ...absentStudents];
+
+await attendanceAPI.markAttendance(attendanceData);
+
+
+    // 2️⃣ End session
+    const endRes = await attendanceAPI.endSession(currentSession.sessionId);
+    console.log('Session ended:', endRes.data);
+
+    // 3️⃣ Reset UI state
+    setIsAttendanceMode(false);
+    setCurrentSession(null);
+    setSelectedSubject('');
+    setDetectedStudents([]);
+    setRecognizedStudents(0);
+  } catch (error) {
+    console.error('Failed to stop attendance session:', error);
+    alert('Something went wrong!');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const simulateAIDetection = () => {
     // Simulate progressive face detection and recognition
@@ -135,6 +205,13 @@ export const FacultyDashboard: React.FC = () => {
     { id: 'attendance', label: 'Attendance', icon: Camera },
     { id: 'reports', label: 'Reports', icon: FileText }
   ];
+
+  const handleCloseModal = () => {
+    setShowAttendanceModal(false);
+    setIsAttendanceMode(false);
+    setSelectedSubject('');
+    setCurrentSession(null);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-teal-50 to-blue-50">
@@ -195,9 +272,10 @@ export const FacultyDashboard: React.FC = () => {
                       key={subject.id}
                       className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300"
                     >
+                      
                       <div className="flex items-start justify-between mb-4">
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900">{subject.name}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">{subject.subjectName}</h3>
                           <p className="text-sm text-gray-600">{subject.code}</p>
                         </div>
                         <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
@@ -230,9 +308,16 @@ export const FacultyDashboard: React.FC = () => {
                       </div>
                     </div>
                   ))}
+                  <AttendanceModal
+                    isOpen={showAttendanceModal}
+                    onClose={handleCloseModal}
+                    currentSession={currentSession}
+                    students={students}
+                    onStopAttendance={handleStopAttendance}
+                  />
                 </div>
-              )}
-            </div>
+      )}
+      </div>
           )}
 
           {activeTab === 'attendance' && (
@@ -293,20 +378,9 @@ export const FacultyDashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-3">
-                    <button
-                      onClick={handleStopAttendance}
-                      disabled={loading}
-                      className="flex-1 flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50"
-                    >
-                      <StopCircle className="w-4 h-4 mr-2" />
-                      {loading ? 'Stopping...' : 'Stop & Save Attendance'}
-                    </button>
-                    <button className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors duration-200">
-                      Pause
-                    </button>
-                  </div>
+                 
                 </div>
+                // start attendance 
               ) : (
                 <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg">
                   <div className="text-center py-12">

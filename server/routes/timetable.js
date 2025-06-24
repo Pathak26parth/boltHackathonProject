@@ -18,14 +18,14 @@ router.get('/', authenticateToken, async (req, res) => {
     if (semester) filter.semester = semester;
     if (facultyId) filter.faculty = facultyId;
     if (day) filter.day = day;
-
+    
     const timetable = await Timetable.find(filter)
-      .populate('subject', 'name code credits')
+      .populate('subjectId', 'name code credits')
       .populate('faculty', 'username email employeeId')
       .sort({ day: 1, time: 1 });
 
-    res.json({ timetable });
-  } catch (error) {
+      res.json({ timetable });
+    } catch (error) {
     console.error('Get timetable error:', error);
     res.status(500).json({ message: 'Server error' });
   }
@@ -35,16 +35,16 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/my-schedule', authenticateToken, requireRole(['faculty']), async (req, res) => {
   try {
     const facultyId = req.user.userId;
-
+    
     const timetable = await Timetable.find({ 
       faculty: facultyId, 
       isActive: true 
     })
       .populate('subject', 'name code credits')
       .sort({ day: 1, time: 1 });
-
-    res.json({ timetable });
-  } catch (error) {
+      
+      res.json({ timetable });
+    } catch (error) {
     console.error('Get faculty timetable error:', error);
     res.status(500).json({ message: 'Server error' });
   }
@@ -54,24 +54,28 @@ router.get('/my-schedule', authenticateToken, requireRole(['faculty']), async (r
 router.post('/', authenticateToken, requireRole(['admin']), [
   body('day').isIn(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']),
   body('time').notEmpty().trim(),
-  body('subject').isMongoId(),
+  body('subjectId').isMongoId(),
   body('faculty').isMongoId(),
   body('division').isIn(['A', 'B', 'C']),
   body('room').notEmpty().trim(),
   body('department').isIn(['CSE', 'ME', 'CE', 'EE', 'ECE']),
   body('semester').isInt({ min: 1, max: 8 })
 ], async (req, res) => {
+
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
+    console.log('ghusa bck');
+    // if (!errors.isEmpty()) {
+    //   return res.status(400).json({ errors: errors.array() });
+    // }
 
-    const { day, time, subject, faculty, division, room, department, semester, duration } = req.body;
+    const { day, time, subjectId, faculty, division, room, department, semester, duration } = req.body;
+    console.log('Query parameters:', { day, time, subjectId, faculty, division, room, department, semester, duration });
 
     // Validate subject exists
-    const subjectDoc = await Subject.findById(subject);
+    const subjectDoc = await Subject.findById(subjectId);
     if (!subjectDoc) {
+      console.log('Subject not found:', subjectName);
       return res.status(400).json({ message: 'Subject not found' });
     }
 
@@ -108,7 +112,7 @@ router.post('/', authenticateToken, requireRole(['admin']), [
     const timetableEntry = new Timetable({
       day,
       time,
-      subject,
+      subjectId: subjectDoc._id,
       subjectName: subjectDoc.name,
       faculty,
       facultyName: facultyDoc.username,
@@ -119,10 +123,12 @@ router.post('/', authenticateToken, requireRole(['admin']), [
       duration: duration || 60
     });
 
+    console.log('Timetable entry data:', timetableEntry);
+    
     await timetableEntry.save();
 
     const populatedEntry = await Timetable.findById(timetableEntry._id)
-      .populate('subject', 'name code credits')
+      .populate('subjectId', 'name code credits')
       .populate('faculty', 'username email employeeId');
 
     res.status(201).json({
@@ -139,7 +145,7 @@ router.post('/', authenticateToken, requireRole(['admin']), [
 router.put('/:entryId', authenticateToken, requireRole(['admin']), [
   body('day').optional().isIn(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']),
   body('time').optional().notEmpty().trim(),
-  body('subject').optional().isMongoId(),
+  body('subjectId').optional().isMongoId(),
   body('faculty').optional().isMongoId(),
   body('division').optional().isIn(['A', 'B', 'C']),
   body('room').optional().notEmpty().trim()
@@ -151,7 +157,7 @@ router.put('/:entryId', authenticateToken, requireRole(['admin']), [
     }
 
     const { entryId } = req.params;
-    const { day, time, subject, faculty, division, room, duration } = req.body;
+    const { day, time, subjectId, faculty, division, room, duration } = req.body;
 
     const entry = await Timetable.findById(entryId);
     if (!entry) {
@@ -166,12 +172,12 @@ router.put('/:entryId', authenticateToken, requireRole(['admin']), [
     if (duration) updateData.duration = duration;
 
     // Handle subject update
-    if (subject) {
-      const subjectDoc = await Subject.findById(subject);
+    if (subjectId) {
+      const subjectDoc = await Subject.findById(subjectId);
       if (!subjectDoc) {
         return res.status(400).json({ message: 'Subject not found' });
       }
-      updateData.subject = subject;
+      updateData.subjectId = subjectId;
       updateData.subjectName = subjectDoc.name;
     }
 
@@ -228,7 +234,7 @@ router.put('/:entryId', authenticateToken, requireRole(['admin']), [
       updateData,
       { new: true, runValidators: true }
     )
-      .populate('subject', 'name code credits')
+      .populate('subjectId', 'name code credits')
       .populate('faculty', 'username email employeeId');
 
     res.json({

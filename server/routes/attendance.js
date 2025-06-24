@@ -15,23 +15,26 @@ router.post('/session/start', authenticateToken, requireRole(['faculty']), [
   body('department').isIn(['CSE', 'ME', 'CE', 'EE', 'ECE']),
   body('semester').isInt({ min: 1, max: 8 })
 ], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
+  // try {
+  //   const errors = validationResult(req);
+  //   if (!errors.isEmpty()) {
+  //     return res.status(400).json({ errors: errors.array() });
+  //   }
+    
     const { subjectId, division, department, semester } = req.body;
+    console.log('Start attendance session request:',  subjectId);
     const facultyId = req.user.userId;
 
     // Validate subject
     const subject = await Subject.findById(subjectId);
-    if (!subject) {
+    console.log('Subject info:', subject);
+    if (!subjectId) {
       return res.status(400).json({ message: 'Subject not found' });
     }
 
     // Get faculty info
     const faculty = await User.findById(facultyId);
+    console.log('Faculty info:', faculty);
     if (!faculty) {
       return res.status(400).json({ message: 'Faculty not found' });
     }
@@ -47,6 +50,7 @@ router.post('/session/start', authenticateToken, requireRole(['faculty']), [
 
     // Generate unique session ID
     const sessionId = `${Date.now()}_${facultyId}_${subjectId}`;
+    console.log('Generated session ID:', sessionId);
 
     const session = new AttendanceSession({
       sessionId,
@@ -69,10 +73,10 @@ router.post('/session/start', authenticateToken, requireRole(['faculty']), [
       message: 'Attendance session started successfully',
       session
     });
-  } catch (error) {
-    console.error('Start attendance session error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
+  // } catch (error) {
+  //   console.error('Start attendance session error:', error);
+  //   res.status(500).json({ message: 'Server error' });
+  // }
 });
 
 // End attendance session (Faculty only)
@@ -80,6 +84,8 @@ router.put('/session/:sessionId/end', authenticateToken, requireRole(['faculty']
   try {
     const { sessionId } = req.params;
     const facultyId = req.user.userId;
+
+    console.log('End attendance session request:', sessionId, facultyId);
 
     const session = await AttendanceSession.findOne({
       sessionId,
@@ -117,89 +123,32 @@ router.put('/session/:sessionId/end', authenticateToken, requireRole(['faculty']
 });
 
 // Mark attendance (Faculty only)
-router.post('/mark', authenticateToken, requireRole(['faculty']), [
-  body('sessionId').notEmpty(),
-  body('studentId').isMongoId(),
-  body('status').isIn(['present', 'absent', 'late'])
-], async (req, res) => {
+router.post('/mark', authenticateToken, requireRole(['faculty']), async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+    const records = req.body;
+
+    if (!Array.isArray(records)) {
+      return res.status(400).json({ message: 'Invalid data format: Expected an array.' });
     }
 
-    const { sessionId, studentId, status, detectionConfidence, remarks } = req.body;
-    const facultyId = req.user.userId;
+    for (const record of records) {
+      if (!record.sessionId || !record.enrollmentNumber || !record.status) {
+        return res.status(400).json({ message: 'Missing fields in one or more records.' });
+      }
+    }
 
-    // Validate session
-    const session = await AttendanceSession.findOne({
-      sessionId,
-      faculty: facultyId,
-      status: 'active'
+    await Attendance.insertMany(records, { ordered: false });
+
+    res.status(201).json({
+      message: 'Bulk attendance marked successfully',
+      count: records.length
     });
-
-    if (!session) {
-      return res.status(400).json({ message: 'Invalid or inactive session' });
-    }
-
-    // Validate student
-    const student = await User.findById(studentId);
-    if (!student || student.role !== 'student') {
-      return res.status(400).json({ message: 'Student not found' });
-    }
-
-    // Get faculty info
-    const faculty = await User.findById(facultyId);
-
-    // Check if attendance already marked
-    const existingAttendance = await Attendance.findOne({
-      student: studentId,
-      sessionId
-    });
-
-    if (existingAttendance) {
-      // Update existing attendance
-      existingAttendance.status = status;
-      existingAttendance.detectionConfidence = detectionConfidence || 0;
-      existingAttendance.remarks = remarks || '';
-      await existingAttendance.save();
-
-      res.json({
-        message: 'Attendance updated successfully',
-        attendance: existingAttendance
-      });
-    } else {
-      // Create new attendance record
-      const attendance = new Attendance({
-        student: studentId,
-        studentName: student.username,
-        enrollmentNumber: student.enrollmentNumber,
-        subject: session.subject,
-        subjectName: session.subjectName,
-        faculty: facultyId,
-        facultyName: faculty.username,
-        date: session.date,
-        status,
-        division: session.division,
-        department: session.department,
-        semester: session.semester,
-        sessionId,
-        detectionConfidence: detectionConfidence || 0,
-        remarks: remarks || ''
-      });
-
-      await attendance.save();
-
-      res.status(201).json({
-        message: 'Attendance marked successfully',
-        attendance
-      });
-    }
   } catch (error) {
-    console.error('Mark attendance error:', error);
+    console.error('Bulk mark attendance error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 // Get student attendance
 router.get('/student/:studentId', authenticateToken, async (req, res) => {

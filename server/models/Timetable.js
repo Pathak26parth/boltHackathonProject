@@ -10,7 +10,7 @@ const timetableSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  subject: {
+  subjectId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Subject',
     required: true

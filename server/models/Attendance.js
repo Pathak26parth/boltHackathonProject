@@ -67,10 +67,10 @@ const attendanceSchema = new mongoose.Schema({
     max: 100,
     default: 0
   },
-  remarks: {
-    type: String,
-    maxlength: 200
-  }
+  // remarks: {
+  //   type: String,
+  //   maxlength: 200
+  // }
 }, {
   timestamps: true
 });
